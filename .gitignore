@@ -5,4 +5,5 @@ finetune/TrackNet_cur.pt
 ckpts/
 matches/
 __pycache__/
+outputs/
 
