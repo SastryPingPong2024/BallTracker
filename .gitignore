@@ -3,3 +3,6 @@ finetune/InpaintNet_cur.pt
 finetune/TrackNet_best.pt
 finetune/TrackNet_cur.pt
 ckpts/
+matches/
+__pycache__/
+
