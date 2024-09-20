@@ -58,7 +58,7 @@ def main(root_dir, gpu_ids, workers_per_gpu):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process match folders in parallel using specified GPUs")
     parser.add_argument("root_dir", help="Root directory containing match folders")
-    parser.add_argument("--gpu_ids", nargs='+', type=int, default=[0, 1, 3], help="List of GPU IDs to use")
+    parser.add_argument("--gpu_ids", nargs='+', type=int, default=[0, 1, 2, 3], help="List of GPU IDs to use")
     parser.add_argument("--workers_per_gpu", type=int, default=1, help="Number of workers per GPU")
     args = parser.parse_args()
 
