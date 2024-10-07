@@ -2,20 +2,22 @@ import os
 import subprocess
 import argparse
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 def get_gpu_memory_map():
     result = subprocess.check_output(
         [
-            'nvidia-smi', '--query-gpu=memory.free',
+            'nvidia-smi', '--query-gpu=index,memory.free',
             '--format=csv,nounits,noheader'
         ], encoding='utf-8')
     
-    # Parse the output and convert to integers
-    gpu_memory = [int(x) for x in result.strip().split('\n')]
+    # Parse the output and convert to dict
+    gpu_memory = {}
+    for line in result.strip().split('\n'):
+        index, mem_free = line.strip().split(',')
+        gpu_memory[int(index)] = int(mem_free)
     return gpu_memory
 
-def process_match(match_folder, root_dir, gpu_id):
+def start_process(match_folder, root_dir, gpu_id):
     match_number = match_folder.split('match')[1]
 
     # Set the CUDA_VISIBLE_DEVICES environment variable
@@ -32,34 +34,74 @@ def process_match(match_folder, root_dir, gpu_id):
     ]
 
     print(f"Processing {match_folder} on GPU {gpu_id}")
-    subprocess.run(command, check=True, env=env)
-    print(f"Finished processing {match_folder}")
+    p = subprocess.Popen(command, env=env)
+    return p
 
 def main(root_dir, gpu_ids, workers_per_gpu):
     match_folders = [f for f in os.listdir(root_dir) if f.startswith('match')]
     match_folders.sort(key=lambda x: int(x.split('match')[1]))
+    max_processes_per_gpu = workers_per_gpu
 
-    total_workers = len(gpu_ids) * workers_per_gpu
-    
-    with ProcessPoolExecutor(max_workers=total_workers) as executor:
-        futures = []
-        for i, match_folder in enumerate(match_folders):
-            gpu_id = gpu_ids[i % len(gpu_ids)]
-            future = executor.submit(process_match, match_folder, root_dir, gpu_id)
-            futures.append(future)
-            time.sleep(10)
+    # Initialize a dict to keep track of processes per GPU
+    gpu_processes = {gpu_id: [] for gpu_id in gpu_ids}
+    match_folder_iter = iter(match_folders)
 
-        for future in as_completed(futures):
+    while True:
+        # Remove completed processes and check for errors
+        for gpu_id in gpu_ids:
+            new_process_list = []
+            for p in gpu_processes[gpu_id]:
+                if p.poll() is None:
+                    new_process_list.append(p)
+                else:
+                    if p.returncode != 0:
+                        print(f"Process on GPU {gpu_id} exited with error code {p.returncode}")
+            gpu_processes[gpu_id] = new_process_list
+
+        # Check if all processes are finished and no more match folders
+        all_done = True
+        next_match_folder = None
+        for gpu_id in gpu_ids:
+            if gpu_processes[gpu_id]:
+                all_done = False
+                break
+        if all_done:
             try:
-                future.result()
-            except Exception as e:
-                print(f"An error occurred: {e}")
+                next_match_folder = next(match_folder_iter)
+                all_done = False
+            except StopIteration:
+                pass
+            if all_done:
+                print("All processes completed.")
+                break
+
+        # Assign new tasks
+        assigned = False
+        for gpu_id in gpu_ids:
+            if len(gpu_processes[gpu_id]) < max_processes_per_gpu:
+                # Check GPU memory
+                gpu_memory = get_gpu_memory_map()
+                if gpu_memory.get(gpu_id, 0) >= 12000:
+                    match_folder, next_match_folder = next_match_folder, None
+                    if match_folder is None:
+                        try:
+                            match_folder = next(match_folder_iter)
+                        except StopIteration:
+                            break
+                    # Start the process
+                    p = start_process(match_folder, root_dir, gpu_id)
+                    gpu_processes[gpu_id].append(p)
+                    assigned = True
+        if not assigned:
+            # If no processes were assigned, sleep for a while
+            time.sleep(10)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process match folders in parallel using specified GPUs")
     parser.add_argument("root_dir", help="Root directory containing match folders")
     parser.add_argument("--gpu_ids", nargs='+', type=int, default=[0, 1, 2, 3], help="List of GPU IDs to use")
-    parser.add_argument("--workers_per_gpu", type=int, default=2, help="Number of workers per GPU")
+    parser.add_argument("--workers_per_gpu", type=int, default=1, help="Number of workers per GPU")
     args = parser.parse_args()
-
-    main(args.root_dir, args.gpu_ids, args.workers_per_gpu)
+    if len(args.gpu_ids) > 4:
+        args.gpu_ids = args.gpu_ids[:4]
+    main(args.root_dir, args.gpu_ids[:4], args.workers_per_gpu)

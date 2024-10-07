@@ -83,7 +83,14 @@ if __name__ == '__main__':
 
     num_workers = args.batch_size if args.batch_size <= 16 else 16
     if os.path.isdir(args.video_file):
-        video_files = [args.video_file + "/" + f for f in os.listdir(args.video_file)]
+        # video_files = [args.video_file + "/" + f for f in os.listdir(args.video_file)]
+        video_files = []
+        to_process = [v.split(".")[0] for v in  os.listdir(args.video_file)]   
+        processed  = [c.split("_ball.csv")[0] for c in  os.listdir(args.save_dir)]
+        for v in to_process:
+            if v not in processed:
+                path = f"{args.video_file}/{v}.mp4"
+                video_files.append(path)
     else:
         video_files = [args.video_file]
     if not os.path.exists(args.save_dir):
@@ -119,7 +126,7 @@ if __name__ == '__main__':
             frame_list, fps, (w, h) = generate_frames(video_file)
             w_scaler, h_scaler = w / WIDTH, h / HEIGHT
             img_scaler = (w_scaler, h_scaler)
-            print(f'Number of sampled frames: {len(frame_list)}')
+            # print(f'Number of sampled frames for {video_file.split("/")[-1]}: {len(frame_list)}')
 
             tracknet_pred_dict = {'Frame':[], 'X':[], 'Y':[], 'Visibility':[], 'Inpaint_Mask':[],
                                 'Img_scaler': (w_scaler, h_scaler), 'Img_shape': (w, h)}
@@ -156,7 +163,7 @@ if __name__ == '__main__':
                 frame_i = torch.arange(seq_len-1, -1, -1) # [7, 6, 5, 4, 3, 2, 1, 0]
                 y_pred_buffer = torch.zeros((buffer_size, seq_len, HEIGHT, WIDTH), dtype=torch.float32)
                 
-                for step, (i, x) in enumerate(tqdm(data_loader)):
+                for step, (i, x) in enumerate(tqdm(data_loader, desc=video_file.split("/")[-1])):
                     x = x.float().cuda()
                     b_size, seq_len = i.shape[0], i.shape[1]
                     with torch.no_grad():
@@ -239,7 +246,7 @@ if __name__ == '__main__':
                     frame_i = torch.arange(seq_len-1, -1, -1) # [7, 6, 5, 4, 3, 2, 1, 0]
                     coor_inpaint_buffer = torch.zeros((buffer_size, seq_len, 2), dtype=torch.float32)
                     
-                    for step, (i, coor_pred, inpaint_mask) in enumerate(tqdm(data_loader)):
+                    for step, (i, coor_pred, inpaint_mask) in enumerate(tqdm(data_loader, desc=video_file.split("/")[-1])):
                         coor_pred, inpaint_mask = coor_pred.float(), inpaint_mask.float()
                         b_size = i.shape[0]
                         with torch.no_grad():
@@ -300,7 +307,7 @@ if __name__ == '__main__':
                 write_pred_video(frame_list, dict(fps=fps, shape=(w, h)), pred_dict, save_file=out_video_file, traj_len=args.traj_len)
         except Exception as e:
             print(e)
-    print('Done.')
+    print(f"Done processing {args.video_file.split('/')[-1]}.")
     
 """
 python predict.py --video_file pres_clip.mp4 --tracknet_file finetune/TrackNet_best.pt --inpaintnet_file finetune/InpaintNet_best.pt --save_dir finetuned_prediction --cuda 1 --output_video
