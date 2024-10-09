@@ -102,6 +102,4 @@ if __name__ == "__main__":
     parser.add_argument("--gpu_ids", nargs='+', type=int, default=[0, 1, 2, 3], help="List of GPU IDs to use")
     parser.add_argument("--workers_per_gpu", type=int, default=1, help="Number of workers per GPU")
     args = parser.parse_args()
-    if len(args.gpu_ids) > 4:
-        args.gpu_ids = args.gpu_ids[:4]
-    main(args.root_dir, args.gpu_ids[:4], args.workers_per_gpu)
+    main(args.root_dir, args.gpu_ids, args.workers_per_gpu)

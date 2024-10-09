@@ -83,14 +83,16 @@ if __name__ == '__main__':
 
     num_workers = args.batch_size if args.batch_size <= 16 else 16
     if os.path.isdir(args.video_file):
-        # video_files = [args.video_file + "/" + f for f in os.listdir(args.video_file)]
-        video_files = []
-        to_process = [v.split(".")[0] for v in  os.listdir(args.video_file)]   
-        processed  = [c.split("_ball.csv")[0] for c in  os.listdir(args.save_dir)]
-        for v in to_process:
-            if v not in processed:
-                path = f"{args.video_file}/{v}.mp4"
-                video_files.append(path)
+        if not os.path.exists(args.save_dir):
+            video_files = [args.video_file + "/" + f for f in os.listdir(args.video_file)]
+        else:
+            video_files = []
+            to_process = [v.split(".")[0] for v in  os.listdir(args.video_file)]   
+            processed  = [c.split("_ball.csv")[0] for c in os.listdir(args.save_dir)]
+            for v in to_process:
+                if v not in processed:
+                    path = f"{args.video_file}/{v}.mp4"
+                    video_files.append(path)
     else:
         video_files = [args.video_file]
     if not os.path.exists(args.save_dir):
