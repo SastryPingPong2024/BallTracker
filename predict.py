@@ -81,7 +81,7 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', type=int, default=0)
     args = parser.parse_args()
 
-    num_workers = args.batch_size if args.batch_size <= 16 else 16
+    num_workers = 2 # args.batch_size if args.batch_size <= 16 else 16
     if os.path.isdir(args.video_file):
         if not os.path.exists(args.save_dir):
             video_files = [args.video_file + "/" + f for f in os.listdir(args.video_file)]

@@ -80,18 +80,16 @@ def main(root_dir, gpu_ids, workers_per_gpu):
         for gpu_id in gpu_ids:
             if len(gpu_processes[gpu_id]) < max_processes_per_gpu:
                 # Check GPU memory
-                gpu_memory = get_gpu_memory_map()
-                if gpu_memory.get(gpu_id, 0) >= 12000:
-                    match_folder, next_match_folder = next_match_folder, None
-                    if match_folder is None:
-                        try:
-                            match_folder = next(match_folder_iter)
-                        except StopIteration:
-                            break
-                    # Start the process
-                    p = start_process(match_folder, root_dir, gpu_id)
-                    gpu_processes[gpu_id].append(p)
-                    assigned = True
+                match_folder, next_match_folder = next_match_folder, None
+                if match_folder is None:
+                    try:
+                        match_folder = next(match_folder_iter)
+                    except StopIteration:
+                        break
+                # Start the process
+                p = start_process(match_folder, root_dir, gpu_id)
+                gpu_processes[gpu_id].append(p)
+                assigned = True
         if not assigned:
             # If no processes were assigned, sleep for a while
             time.sleep(10)
